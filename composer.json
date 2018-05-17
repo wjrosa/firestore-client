@@ -2,7 +2,7 @@
   "name": "wjrosa/firestore-client",
   "description": "Simple Firestore client for PHP",
   "license": "Apache-2.0",
-  "minimum-stability": "stable",
+  "minimum-stability": "dev",
   "require": {
   },
   "require-dev": {
