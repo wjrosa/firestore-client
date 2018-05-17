@@ -1,0 +1,22 @@
+{
+  "name": "wjrosa/firestore-client",
+  "description": "Simple Firestore client for PHP",
+  "license": "Apache-2.0",
+  "minimum-stability": "stable",
+  "require": {
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^4.8|^5.0",
+    "squizlabs/php_codesniffer": "2.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "WJRosa\\Firestore\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "WJRosa\\Firestore\\Tests\\": "tests"
+    }
+  }
+}
