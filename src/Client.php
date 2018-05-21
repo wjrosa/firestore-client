@@ -44,14 +44,16 @@ class Client
     }
 
     private function post(string $method, array $params, $postBody) {
+        $encodedBody = json_encode($postBody);
         $curl = curl_init();
         curl_setopt_array($curl, array(
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_URL => $this->constructUrl($method, $params),
-            CURLOPT_HTTPHEADER => array('Content-Type: application/json','Content-Length: ' . strlen($postBody)),
+            CURLOPT_HTTPHEADER => array('Content-Type: application/json','Content-Length: ' . strlen($encodedBody)),
             CURLOPT_USERAGENT => 'cURL',
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $postBody
+            CURLOPT_POSTFIELDS => $encodedBody,
+            CURLOPT_TIMEOUT => 10
         ));
         $response = curl_exec($curl);
         curl_close($curl);
@@ -59,14 +61,15 @@ class Client
     }
 
     private function patch($method, $params, $postBody) {
+        $encodedBody = json_encode($postBody);
         $curl = curl_init();
         curl_setopt_array($curl, array(
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => 'PATCH',
-            CURLOPT_HTTPHEADER => array('Content-Type: application/json','Content-Length: ' . strlen($postBody)),
+            CURLOPT_HTTPHEADER => array('Content-Type: application/json','Content-Length: ' . strlen($encodedBody)),
             CURLOPT_URL => $this->constructUrl($method, $params),
             CURLOPT_USERAGENT => 'cURL',
-            CURLOPT_POSTFIELDS => $postBody
+            CURLOPT_POSTFIELDS => $encodedBody
         ));
         $response = curl_exec($curl);
         curl_close($curl);
@@ -143,16 +146,20 @@ class Client
     }
 
     /**
-     * @param string $collectionName
      * @param array $collection
      * @return mixed
      */
-    public function updateCollection(string $collectionName, array $collection) {
-        $params = [];
+    public function updateCollection(array $collection) {
+        $writes = [];
+        foreach($collection as $document) {
+            $writes[] = [
+                'update' => $document
+            ];
+        }
         $collection = [
-            'fields' => $collection
+            'writes' => $writes
         ];
-        return $this->patch("documents/$collectionName", $params, $collection);
+        return $this->post("documents:commit", [], $collection);
     }
 
     /**
