@@ -58,21 +58,6 @@ class Client
         return $response;
     }
 
-    private function put($method, $params, $postBody) {
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => 'PUT',
-            CURLOPT_HTTPHEADER => array('Content-Type: application/json','Content-Length: ' . strlen($postBody)),
-            CURLOPT_URL => $this->constructUrl($method, $params),
-            CURLOPT_USERAGENT => 'cURL',
-            CURLOPT_POSTFIELDS => $postBody
-        ));
-        $response = curl_exec($curl);
-        curl_close($curl);
-        return $response;
-    }
-
     private function patch($method, $params, $postBody) {
         $curl = curl_init();
         curl_setopt_array($curl, array(
@@ -113,13 +98,6 @@ class Client
     }
 
     /**
-    This does not work
-     */
-    public function setDocument(string $collectionName, string $documentId, Document $document) {
-        return $this->put("documents/$collectionName/$documentId", [], $document->toJson());
-    }
-
-    /**
      * @param string $collectionName
      * @param string $documentId
      * @param Document $document
@@ -150,5 +128,42 @@ class Client
      */
     public function addDocument(string $collectionName, Document $document) {
         return $this->post("documents/$collectionName", [], $document->toJson());
+    }
+
+    /**
+     * @param $collectionName
+     * @return array
+     */
+    public function getCollection($collectionName) {
+        $collection = [];
+        if ($response = $this->get("documents/$collectionName")) {
+            $collection = $response;
+        }
+        return $collection;
+    }
+
+    /**
+     * @param string $collectionName
+     * @param array $collection
+     * @return mixed
+     */
+    public function updateCollection(string $collectionName, array $collection) {
+        $params = [];
+        $collection = [
+            'fields' => $collection
+        ];
+        return $this->patch("documents/$collectionName", $params, $collection);
+    }
+
+    /**
+     * @param string $collectionName
+     * @param array $collection
+     * @return mixed
+     */
+    public function addCollection(string $collectionName, array $collection) {
+        $collection = [
+            'fields' => $collection
+        ];
+        return $this->post("documents/$collectionName", [], json_encode($collection));
     }
 }
