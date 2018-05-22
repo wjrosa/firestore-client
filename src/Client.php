@@ -135,12 +135,12 @@ class Client
 
     /**
      * @param $collectionName
-     * @return array
+     * @return \stdClass
      */
-    public function getCollection($collectionName) {
+    public function getCollection($collectionName, array $params = null) {
         $collection = [];
-        if ($response = $this->get("documents/$collectionName")) {
-            $collection = $response;
+        if ($response = $this->get("documents/$collectionName", $params)) {
+            $collection = \GuzzleHttp\json_decode($response);
         }
         return $collection;
     }
