@@ -6,113 +6,66 @@ class Client
     /**
      * @var string
      */
-    private $apiRoot = 'https://firestore.googleapis.com/v1beta1/';
-
-    /**
-     * @var string
-     */
     private $project;
 
-    /**
-     * @var string
-     */
-    private $apiKey;
+    private $service;
 
-    function __construct(string $project, string $apiKey) {
+    function __construct(string $project) {
+        $scopes = ['https://www.googleapis.com/auth/datastore'];
+        $client = new \Google_Client();
+        $client->addScope($scopes);
+        $client->useApplicationDefaultCredentials();
+        if ($client->isAccessTokenExpired()) {
+            $client->fetchAccessTokenWithAssertion();
+        }
+        $firestoreService = new \Google_Service_Firestore($client);
+        $databaseService = $firestoreService->projects_databases_documents;
+        $this->service = $databaseService;
         $this->project = $project;
-        $this->apiKey = $apiKey;
     }
 
     private function constructUrl(string $method, array $params = null) {
         $params = is_array($params) ? $params : [];
-        return (
-            $this->apiRoot . 'projects/' . $this->project . '/' .
-            'databases/(default)/' . $method . '?key=' . $this->apiKey . '&' . http_build_query($params)
-        );
+        return 'projects/' . $this->project . '/databases/(default)/' . $method . '?' . http_build_query($params);
     }
 
     private function get(string $method, array $params = null) {
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_RETURNTRANSFER => 1,
-            CURLOPT_URL => $this->constructUrl($method, $params),
-            CURLOPT_USERAGENT => 'cURL'
-        ));
-        $response = curl_exec($curl);
-        curl_close($curl);
-        return $response;
+        return $this->service->get($this->constructUrl($method, $params));
     }
 
-    private function post(string $method, array $params, $postBody) {
-        $encodedBody = json_encode($postBody);
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_URL => $this->constructUrl($method, $params),
-            CURLOPT_HTTPHEADER => array('Content-Type: application/json','Content-Length: ' . strlen($encodedBody)),
-            CURLOPT_USERAGENT => 'cURL',
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $encodedBody,
-            CURLOPT_TIMEOUT => 10
-        ));
-        $response = curl_exec($curl);
-        curl_close($curl);
-        return $response;
-    }
-
-    private function patch($method, $params, $postBody) {
-        $encodedBody = json_encode($postBody);
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => 'PATCH',
-            CURLOPT_HTTPHEADER => array('Content-Type: application/json','Content-Length: ' . strlen($encodedBody)),
-            CURLOPT_URL => $this->constructUrl($method, $params),
-            CURLOPT_USERAGENT => 'cURL',
-            CURLOPT_POSTFIELDS => $encodedBody
-        ));
-        $response = curl_exec($curl);
-        curl_close($curl);
-        return $response;
+    private function patch($method, $params, \Google_Service_Firestore_Document $document) {
+        return $this->service->patch($this->constructUrl($method, $params), $document);
     }
 
     private function delete($method, $params) {
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_RETURNTRANSFER => 1,
-            CURLOPT_CUSTOMREQUEST => 'DELETE',
-            CURLOPT_URL => $this->constructUrl($method, $params),
-            CURLOPT_USERAGENT => 'cURL'
-        ));
-        $response = curl_exec($curl);
-        curl_close($curl);
-        return $response;
+        return $this->service->delete($this->constructUrl($method, $params));
     }
 
     /**
      * @param $collectionName
      * @param $documentId
-     * @return Document
+     * @return \Google_Service_Firestore_Document
      */
     public function getDocument($collectionName, $documentId) {
         if ($response = $this->get("documents/$collectionName/$documentId")) {
-            return new Document($response);
+            return $response;
         }
+        return new \Google_Service_Firestore_Document();
     }
 
     /**
      * @param string $collectionName
      * @param string $documentId
-     * @param Document $document
+     * @param \Google_Service_Firestore_Document $document
      * @param null $documentExists
      * @return mixed
      */
-    public function updateDocument(string $collectionName, string $documentId, Document $document, $documentExists = null) {
+    public function updateDocument(string $collectionName, string $documentId, \Google_Service_Firestore_Document $document, $documentExists = null) {
         $params = [];
         if (!is_null($documentExists)) {
             $params['currentDocument.exists'] = boolval($documentExists);
         }
-        return $this->patch("documents/$collectionName/$documentId", $params, $document->toJson());
+        return $this->patch("documents/$collectionName/$documentId", $params, $document);
     }
 
     /**
@@ -126,28 +79,28 @@ class Client
 
     /**
      * @param string $collectionName
-     * @param Document $document
+     * @param \Google_Service_Firestore_Document $document
      * @return mixed
      */
-    public function addDocument(string $collectionName, Document $document) {
-        return $this->post("documents/$collectionName", [], $document->toJson());
+    public function addDocument(string $collectionName, \Google_Service_Firestore_Document $document) {
+        return $this->service->createDocument("documents/$collectionName", $collectionName, $document);
     }
 
     /**
      * @param $collectionName
-     * @return \stdClass
+     * @param $params
+     * @return \Google_Service_Firestore_Document
      */
     public function getCollection($collectionName, array $params = null) {
-        $collection = [];
         if ($response = $this->get("documents/$collectionName", $params)) {
-            $collection = \GuzzleHttp\json_decode($response);
+            return $response;
         }
-        return $collection;
+        return new \Google_Service_Firestore_Document();
     }
 
     /**
-     * @param array $collection
-     * @return mixed
+     * @param \Google_Service_Firestore_Document $collection
+     * @return \Google_Service_Firestore_CommitResponse|mixed
      */
     public function updateCollection(array $collection) {
         $writes = [];
@@ -156,21 +109,21 @@ class Client
                 'update' => $document
             ];
         }
-        $collection = [
-            'writes' => $writes
-        ];
-        return $this->post("documents:commit", [], $collection);
+        $writeRequest = new \Google_Service_Firestore_CommitRequest();
+        $writeRequest->setWrites($writes);
+        return $this->service->commit('projects/' . $this->project . '/databases/(default)', $writeRequest);
     }
 
     /**
      * @param string $collectionName
-     * @param array $collection
+     * @param \Google_Service_Firestore_Document $collection
      * @return mixed
      */
-    public function addCollection(string $collectionName, array $collection) {
+    public function addCollection(string $collectionName, \Google_Service_Firestore_Document $collection){
         $collection = [
             'fields' => $collection
         ];
-        return $this->post("documents/$collectionName", [], json_encode($collection));
+
+        return $this->service->createDocument("documents", $collectionName, $collection);
     }
 }
